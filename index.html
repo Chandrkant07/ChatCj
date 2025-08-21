@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Chat Room</title>
+    <title>Chat-CJ</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Feather Icons for UI elements -->
+    <script src="https://unpkg.com/feather-icons"></script>
     <style>
         /* Custom scrollbar for a cleaner look */
         #chat-messages::-webkit-scrollbar {
             width: 8px;
         }
         #chat-messages::-webkit-scrollbar-track {
-            background: #f1f5f9;
+            background: transparent;
         }
         #chat-messages::-webkit-scrollbar-thumb {
             background: #94a3b8;
@@ -27,8 +29,8 @@
         }
         /* Simple spinner for loading state */
         .spinner {
-            border: 2px solid rgba(0,0,0,0.1);
-            border-left-color: #4f46e5;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-left-color: #ffffff;
             border-radius: 50%;
             width: 16px;
             height: 16px;
@@ -37,20 +39,29 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        /* Gradient background */
+        body {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 0);
+            background-size: 20px 20px;
+        }
     </style>
 </head>
-<body class="bg-slate-100 font-sans text-slate-800 flex items-center justify-center min-h-screen">
+<body class="font-sans text-slate-800 flex items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-2xl mx-auto p-4">
-        <div id="app-container" class="bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-500">
+    <div class="w-full max-w-2xl mx-auto">
+        <div id="app-container" class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 border border-slate-200">
 
             <!-- Entry Screen: Create or Join a Room -->
             <div id="entry-screen" class="p-8 sm:p-12 text-center">
-                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 mb-2">Anonymous Chat</h1>
-                <p class="text-slate-500 mb-8">Create a room or join an existing one.</p>
+                <div class="flex justify-center items-center gap-3 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Chat-CJ</h1>
+                </div>
+                <p class="text-slate-500 mb-8">Create a secure room or join an existing one.</p>
                 
                 <div class="space-y-4">
-                    <button id="create-room-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105 disabled:bg-indigo-400 disabled:cursor-not-allowed disabled:scale-100" disabled>
+                    <button id="create-room-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-105 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2">
                         <span class="btn-text">Create New Room</span>
                     </button>
                     
@@ -62,55 +73,62 @@
 
                     <div class="flex flex-col sm:flex-row gap-3">
                         <input type="text" id="room-id-input" placeholder="Enter Room ID" class="flex-grow w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition disabled:bg-slate-100" disabled>
-                        <button id="join-room-btn" class="w-full sm:w-auto bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-transform transform hover:scale-105 disabled:bg-slate-500 disabled:cursor-not-allowed disabled:scale-100" disabled>
+                        <button id="join-room-btn" class="w-full sm:w-auto bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-transform transform hover:scale-105 disabled:bg-slate-500 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2">
                            <span class="btn-text">Join Room</span>
                         </button>
                     </div>
                 </div>
                  <p id="status-message" class="text-slate-500 mt-4 text-sm font-medium h-5 flex items-center justify-center gap-2">
-                    <span class="spinner"></span>
+                    <span class="spinner !border-l-indigo-600 !border-2"></span>
                     <span>Connecting...</span>
                  </p>
             </div>
 
             <!-- Chat Screen -->
-            <div id="chat-screen" class="hidden h-[80vh] sm:h-[70vh] flex flex-col">
-                <header class="flex-shrink-0 bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Room ID: <span id="room-id-display" class="font-mono text-indigo-600"></span></h2>
-                        <p class="text-xs text-slate-500">Your User ID: <span id="user-id-display" class="font-mono"></span></p>
+            <div id="chat-screen" class="hidden h-[85vh] sm:h-[75vh] flex flex-col">
+                <header class="flex-shrink-0 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-slate-900">Room:</h2>
+                        <div class="flex items-center gap-2 bg-indigo-100 text-indigo-700 font-mono p-2 rounded-lg">
+                           <span id="room-id-display"></span>
+                           <button id="copy-room-id-btn" class="hover:bg-indigo-200 p-1 rounded-md transition-colors" title="Copy Room ID">
+                               <i data-feather="copy" class="w-4 h-4"></i>
+                           </button>
+                        </div>
                     </div>
-                    <button id="leave-room-btn" class="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition">Leave</button>
+                    <button id="leave-room-btn" class="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition flex items-center gap-1">
+                        <i data-feather="log-out" class="w-4 h-4"></i> Leave
+                    </button>
                 </header>
 
                 <!-- Messages Area -->
-                <main id="chat-messages" class="flex-grow p-4 sm:p-6 overflow-y-auto bg-slate-100/50 space-y-4">
+                <main id="chat-messages" class="flex-grow p-4 sm:p-6 overflow-y-auto space-y-4">
                     <!-- Messages will be dynamically inserted here -->
                 </main>
 
                 <!-- Message Input Form -->
-                <footer class="flex-shrink-0 bg-white border-t border-slate-200 p-4">
+                <footer class="flex-shrink-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4">
                     <form id="message-form" class="flex items-center gap-3">
                         <input type="text" id="message-input" placeholder="Type your message..." class="flex-grow w-full px-4 py-2 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" autocomplete="off">
-                        <button type="submit" class="bg-indigo-600 text-white rounded-full p-2.5 shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-send"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        <button type="submit" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full p-2.5 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
+                            <i data-feather="send" class="w-5 h-5"></i>
                         </button>
                     </form>
                 </footer>
             </div>
         </div>
+        <p class="text-center text-xs text-slate-400 mt-4">Your User ID: <span id="user-id-display" class="font-mono"></span></p>
     </div>
 
     <!-- Firebase SDK -->
     <script type="module">
         // --- Firebase Configuration ---
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD0G7ymgS19IWkR-bFvKGLqXEnGWFNceXo",
             authDomain: "chat-app-cj.firebaseapp.com",
             databaseURL: "https://chat-app-cj-default-rtdb.firebaseio.com",
             projectId: "chat-app-cj",
-            storageBucket: "chat-app-cj.appspot.com", // Corrected storage bucket domain
+            storageBucket: "chat-app-cj.appspot.com",
             messagingSenderId: "1029956275780",
             appId: "1:1029956275780:web:033bc3591f734120afb611"
         };
@@ -141,6 +159,7 @@
         const createRoomBtn = document.getElementById('create-room-btn');
         const joinRoomBtn = document.getElementById('join-room-btn');
         const leaveRoomBtn = document.getElementById('leave-room-btn');
+        const copyRoomIdBtn = document.getElementById('copy-room-id-btn');
         const roomIdInput = document.getElementById('room-id-input');
         const roomIdDisplay = document.getElementById('room-id-display');
         const userIdDisplay = document.getElementById('user-id-display');
@@ -152,19 +171,15 @@
         // --- Authentication ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User is signed in anonymously.
                 userId = user.uid;
-                userIdDisplay.textContent = userId.substring(0, 8) + '...';
+                userIdDisplay.textContent = userId;
                 
-                // Enable UI now that user is authenticated
                 createRoomBtn.disabled = false;
                 joinRoomBtn.disabled = false;
                 roomIdInput.disabled = false;
-                statusMessage.textContent = ''; // Clear status message
-                statusMessage.classList.remove('text-red-500');
+                statusMessage.innerHTML = ''; 
 
             } else {
-                // User is signed out, attempt to sign in.
                 signInAnonymously(auth).catch((error) => {
                     console.error("Anonymous sign-in failed:", error);
                     statusMessage.textContent = "Could not authenticate. Please refresh.";
@@ -189,39 +204,49 @@
             chatMessages.innerHTML = '';
         };
 
+        const copyToClipboard = (text) => {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            
+            // Visual feedback
+            const copyIcon = copyRoomIdBtn.querySelector('i');
+            copyIcon.setAttribute('data-feather', 'check');
+            feather.replace();
+            setTimeout(() => {
+                copyIcon.setAttribute('data-feather', 'copy');
+                feather.replace();
+            }, 1500);
+        };
+
         // --- Room Management ---
         const createRoom = async () => {
             if (!userId) {
                 statusMessage.textContent = "Authentication not ready. Please wait.";
-                statusMessage.classList.add('text-red-500');
                 return;
             }
-            // Generate a simple 6-character room ID
             const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
             const roomRef = doc(db, `artifacts/${appId}/public/data/rooms`, newRoomId);
 
             try {
-                await setDoc(roomRef, {
-                    createdAt: serverTimestamp(),
-                    creatorId: userId
-                });
+                await setDoc(roomRef, { createdAt: serverTimestamp(), creatorId: userId });
                 await joinRoom(newRoomId);
             } catch (error) {
-                console.error("Error creating room: ", error.code, error.message);
+                console.error("Error creating room: ", error);
                 statusMessage.textContent = "Failed to create room. Please try again.";
-                statusMessage.classList.add('text-red-500');
             }
         };
 
         const joinRoom = async (roomId) => {
             if (!roomId) {
                 statusMessage.textContent = "Please enter a Room ID.";
-                statusMessage.classList.add('text-red-500');
                 return;
             }
             if (!userId) {
                 statusMessage.textContent = "Authentication not ready. Please wait.";
-                statusMessage.classList.add('text-red-500');
                 return;
             }
 
@@ -232,22 +257,19 @@
                     roomIdDisplay.textContent = roomId;
                     showChatScreen();
                     listenForMessages(roomId);
-                    statusMessage.textContent = ''; // Clear any previous errors
-                    statusMessage.classList.remove('text-red-500');
+                    statusMessage.textContent = '';
                 } else {
                     statusMessage.textContent = "Room not found. Check the ID and try again.";
-                    statusMessage.classList.add('text-red-500');
                 }
             } catch (error) {
-                console.error("Error joining room: ", error.code, error.message);
+                console.error("Error joining room: ", error);
                 statusMessage.textContent = "An error occurred while joining the room.";
-                statusMessage.classList.add('text-red-500');
             }
         };
         
         const leaveRoom = () => {
             if (unsubscribeMessages) {
-                unsubscribeMessages(); // Detach the listener
+                unsubscribeMessages();
                 unsubscribeMessages = null;
             }
             showEntryScreen();
@@ -267,10 +289,9 @@
                         senderId: userId,
                         timestamp: serverTimestamp()
                     });
-                    messageInput.value = ''; // Clear input after sending
+                    messageInput.value = '';
                 } catch (error) {
                     console.error("Error sending message: ", error);
-                    // Optionally show an error to the user in the UI
                 }
             }
         };
@@ -279,47 +300,49 @@
             const messagesColRef = collection(db, `artifacts/${appId}/public/data/rooms/${roomId}/messages`);
             const q = query(messagesColRef, orderBy("timestamp"));
 
-            if (unsubscribeMessages) {
-                unsubscribeMessages();
-            }
+            if (unsubscribeMessages) unsubscribeMessages();
 
             unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
-                chatMessages.innerHTML = ''; // Clear previous messages
+                chatMessages.innerHTML = '';
                 querySnapshot.forEach((doc) => {
-                    const message = doc.data();
-                    renderMessage(message);
+                    renderMessage(doc.data());
                 });
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }, (error) => {
                 console.error("Message listener error:", error);
-                // Handle listener errors, e.g., show a message in the chat
                 chatMessages.innerHTML = `<div class="text-center text-slate-500">Could not load messages.</div>`;
             });
         };
         
         const renderMessage = (message) => {
             const isSender = message.senderId === userId;
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `flex items-end gap-2 ${isSender ? 'justify-end' : 'justify-start'}`;
-            
+            const messageContainer = document.createElement('div');
+            messageContainer.className = `flex flex-col ${isSender ? 'items-end' : 'items-start'}`;
+
+            const senderIdSpan = document.createElement('span');
+            senderIdSpan.className = 'text-xs text-slate-500 font-mono mb-1 ml-2 mr-2';
+            senderIdSpan.textContent = isSender ? 'You' : message.senderId.substring(0, 8);
+
             const messageBubble = document.createElement('div');
             messageBubble.className = `max-w-xs sm:max-w-md px-4 py-2 rounded-2xl shadow-sm`;
             messageBubble.textContent = message.text;
 
             if (isSender) {
                 messageBubble.classList.add('bg-indigo-600', 'text-white', 'rounded-br-lg');
-                messageDiv.appendChild(messageBubble);
             } else {
                 messageBubble.classList.add('bg-white', 'text-slate-800', 'rounded-bl-lg');
-                messageDiv.appendChild(messageBubble);
             }
-            chatMessages.appendChild(messageDiv);
+            
+            messageContainer.appendChild(senderIdSpan);
+            messageContainer.appendChild(messageBubble);
+            chatMessages.appendChild(messageContainer);
         };
 
         // --- Event Listeners ---
         createRoomBtn.addEventListener('click', createRoom);
         joinRoomBtn.addEventListener('click', () => joinRoom(roomIdInput.value.trim().toUpperCase()));
         leaveRoomBtn.addEventListener('click', leaveRoom);
+        copyRoomIdBtn.addEventListener('click', () => copyToClipboard(roomIdDisplay.textContent));
         messageForm.addEventListener('submit', sendMessage);
         
         roomIdInput.addEventListener('keyup', (e) => {
@@ -328,6 +351,8 @@
             }
         });
 
+        // Initial icon render
+        feather.replace();
     </script>
 </body>
 </html>
