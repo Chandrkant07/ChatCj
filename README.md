@@ -1,4 +1,6 @@
 Chat-CJ: Real-Time Anonymous Chat Application
+
+
 Chat-CJ is a web-based, real-time anonymous chat application that allows users to instantly create or join chat rooms without needing to register or log in. It's built with modern web technologies and uses Google's Firebase for its backend, ensuring fast and reliable communication.
 
 ✨ Features
