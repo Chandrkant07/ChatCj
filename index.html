@@ -45,6 +45,16 @@
             background-image: radial-gradient(#e2e8f0 1px, transparent 0);
             background-size: 20px 20px;
         }
+        /* Typing indicator animation */
+        .typing-dot {
+            animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
     </style>
 </head>
 <body class="font-sans text-slate-800 flex items-center justify-center min-h-screen p-4">
@@ -55,7 +65,7 @@
             <!-- Entry Screen: Create or Join a Room -->
             <div id="entry-screen" class="p-8 sm:p-12 text-center">
                 <div class="flex justify-center items-center gap-3 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Chat-CJ</h1>
                 </div>
                 <p class="text-slate-500 mb-8">Create a secure room or join an existing one.</p>
@@ -112,6 +122,11 @@
                     <!-- Messages will be dynamically inserted here -->
                 </main>
 
+                <!-- Typing Indicator -->
+                <div id="typing-indicator" class="flex-shrink-0 px-6 pb-2 h-6 text-sm text-slate-500 flex items-center gap-2">
+                    <!-- Typing users will appear here -->
+                </div>
+
                 <!-- Message Input Form -->
                 <footer class="flex-shrink-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4">
                     <form id="message-form" class="flex items-center gap-3">
@@ -124,6 +139,7 @@
             </div>
         </div>
         <p class="text-center text-xs text-slate-400 mt-4">Your Username: <span id="user-name-display" class="font-mono"></span></p>
+        <p class="text-center text-xs text-slate-500 mt-2 font-medium">Made with ❤️ by Chandrakant</p>
     </div>
 
     <!-- Firebase SDK -->
@@ -152,6 +168,9 @@
         let currentRoomId = null;
         let unsubscribeMessages = null; 
         let unsubscribeUsers = null;
+        let unsubscribeTyping = null;
+        let typingTimeout = null;
+        let currentUsers = new Map();
 
         // --- Random Name Generation ---
         const adjectives = ["Agile", "Brave", "Clever", "Daring", "Eager", "Fast", "Gentle", "Happy", "Jolly", "Kind", "Lively", "Merry", "Nice", "Proud", "Silly", "Wise"];
@@ -187,6 +206,7 @@
         const messageInput = document.getElementById('message-input');
         const chatMessages = document.getElementById('chat-messages');
         const statusMessage = document.getElementById('status-message');
+        const typingIndicator = document.getElementById('typing-indicator');
 
         // --- Authentication ---
         onAuthStateChanged(auth, (user) => {
@@ -279,6 +299,7 @@
                     showChatScreen();
                     listenForMessages(roomId);
                     listenForUsers(roomId);
+                    listenForTyping(roomId);
                     statusMessage.textContent = '';
                 } else {
                     statusMessage.textContent = "Room not found. Check the ID and try again.";
@@ -292,13 +313,17 @@
         const leaveRoom = async () => {
             if (unsubscribeMessages) unsubscribeMessages();
             if (unsubscribeUsers) unsubscribeUsers();
+            if (unsubscribeTyping) unsubscribeTyping();
 
             if (currentRoomId && userId) {
                 const userRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/users`, userId);
                 await deleteDoc(userRef).catch(err => console.error("Error removing user presence:", err));
+                const typingRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/typing`, userId);
+                await deleteDoc(typingRef);
             }
 
             currentRoomId = null;
+            currentUsers.clear();
             showEntryScreen();
         };
 
@@ -323,10 +348,62 @@
             if (unsubscribeUsers) unsubscribeUsers();
 
             unsubscribeUsers = onSnapshot(usersColRef, (querySnapshot) => {
-                userCount.textContent = querySnapshot.size;
+                const newUsers = new Map();
+                querySnapshot.forEach(doc => {
+                    newUsers.set(doc.id, doc.data());
+                });
+
+                // Check for users who joined
+                newUsers.forEach((userData, uid) => {
+                    if (!currentUsers.has(uid) && uid !== userId) {
+                        renderNotification(`${userData.name} has joined the room.`);
+                    }
+                });
+
+                // Check for users who left
+                currentUsers.forEach((userData, uid) => {
+                    if (!newUsers.has(uid)) {
+                        renderNotification(`${userData.name} has left the room.`);
+                    }
+                });
+
+                currentUsers = newUsers;
+                userCount.textContent = currentUsers.size;
+            });
+        };
+
+        const listenForTyping = (roomId) => {
+            const typingColRef = collection(db, `artifacts/${appId}/public/data/rooms/${roomId}/typing`);
+            if (unsubscribeTyping) unsubscribeTyping();
+
+            unsubscribeTyping = onSnapshot(typingColRef, (querySnapshot) => {
+                const typingUsers = [];
+                querySnapshot.forEach(doc => {
+                    if (doc.id !== userId) {
+                        typingUsers.push(doc.data().name);
+                    }
+                });
+
+                if (typingUsers.length > 0) {
+                    const names = typingUsers.join(', ');
+                    typingIndicator.innerHTML = `
+                        <div class="flex items-center gap-1">
+                            <span class="font-medium">${names}</span>
+                            <span>is typing</span>
+                            <div class="flex items-center">
+                                <span class="typing-dot w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                                <span class="typing-dot w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                                <span class="typing-dot w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    typingIndicator.innerHTML = '';
+                }
             });
         };
         
+        // --- Actions ---
         const sendMessage = async (e) => {
             e.preventDefault();
             const messageText = messageInput.value.trim();
@@ -341,20 +418,44 @@
                         timestamp: serverTimestamp()
                     });
                     messageInput.value = '';
+                    // Stop typing indicator after sending
+                    const typingRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/typing`, userId);
+                    await deleteDoc(typingRef);
                 } catch (error) {
                     console.error("Error sending message: ", error);
                 }
             }
         };
 
+        const handleTyping = () => {
+            if (!currentRoomId || !userId) return;
+            const typingRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/typing`, userId);
+            setDoc(typingRef, { name: userName });
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                deleteDoc(typingRef);
+            }, 2000); // User is considered "stopped typing" after 2 seconds
+        };
+
+        // --- Rendering ---
         const renderMessage = (message) => {
             const isSender = message.senderId === userId;
             const messageContainer = document.createElement('div');
             messageContainer.className = `flex flex-col ${isSender ? 'items-end' : 'items-start'}`;
 
-            const senderIdSpan = document.createElement('span');
-            senderIdSpan.className = 'text-xs text-slate-500 font-medium mb-1 ml-2 mr-2';
-            senderIdSpan.textContent = isSender ? 'You' : message.senderName;
+            const messageHeader = document.createElement('div');
+            messageHeader.className = 'flex items-center gap-2 mb-1';
+            
+            const senderNameSpan = document.createElement('span');
+            senderNameSpan.className = 'text-xs text-slate-600 font-medium';
+            senderNameSpan.textContent = isSender ? 'You' : message.senderName;
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'text-xs text-slate-400';
+            if (message.timestamp) {
+                timestampSpan.textContent = new Date(message.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
 
             const messageBubble = document.createElement('div');
             messageBubble.className = `max-w-xs sm:max-w-md px-4 py-2 rounded-2xl shadow-sm`;
@@ -362,13 +463,25 @@
 
             if (isSender) {
                 messageBubble.classList.add('bg-indigo-600', 'text-white', 'rounded-br-lg');
+                messageHeader.appendChild(timestampSpan);
+                messageHeader.appendChild(senderNameSpan);
             } else {
                 messageBubble.classList.add('bg-white', 'text-slate-800', 'rounded-bl-lg');
+                messageHeader.appendChild(senderNameSpan);
+                messageHeader.appendChild(timestampSpan);
             }
             
-            messageContainer.appendChild(senderIdSpan);
+            messageContainer.appendChild(messageHeader);
             messageContainer.appendChild(messageBubble);
             chatMessages.appendChild(messageContainer);
+        };
+
+        const renderNotification = (text) => {
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = 'text-center text-xs text-slate-400 py-2';
+            notificationDiv.textContent = text;
+            chatMessages.appendChild(notificationDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         };
 
         // --- Event Listeners ---
@@ -377,6 +490,7 @@
         leaveRoomBtn.addEventListener('click', leaveRoom);
         copyRoomIdBtn.addEventListener('click', () => copyToClipboard(roomIdDisplay.textContent));
         messageForm.addEventListener('submit', sendMessage);
+        messageInput.addEventListener('input', handleTyping);
         
         roomIdInput.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
@@ -384,13 +498,12 @@
             }
         });
 
-        // Handle user leaving by closing tab/browser
         window.addEventListener('beforeunload', (e) => {
             if (currentRoomId && userId) {
-                // This is a best-effort attempt. It's not guaranteed to run.
-                // For a robust presence system, Firebase Realtime Database is better.
                 const userRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/users`, userId);
                 deleteDoc(userRef);
+                const typingRef = doc(db, `artifacts/${appId}/public/data/rooms/${currentRoomId}/typing`, userId);
+                deleteDoc(typingRef);
             }
         });
 
